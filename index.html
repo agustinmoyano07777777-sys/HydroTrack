@@ -91,94 +91,58 @@
     </div>
 
     <script>
-        // Configuración basada en tu perfil (75kg)
-        let state = {
+let state = {
             weight: 75,
             bottleSize: 500,
             consumed: 0,
-            meta: 0
+            meta: 0,
+            nextReminder: null
         };
 
-        // Cargar datos guardados
-        function loadData() {
-            const saved = localStorage.getItem('hydrotrack_data');
-            if (saved) {
-                state = { ...state, ...JSON.parse(saved) };
-            }
-            calculateMeta();
+        function init() {
+            loadData();
+            setNextReminder(); // Calcula la primera notificación
+            setInterval(updateCountdown, 1000); // Actualiza el segundero cada segundo
         }
 
-        function calculateMeta() {
-            // Fórmula estándar: (Peso / 7) * 250ml
-            const totalMl = (state.weight / 7) * 250;
-            state.meta = Math.ceil(totalMl / state.bottleSize);
-            updateUI();
-        }
-
-        function updateUI() {
-            document.getElementById('metaCount').innerText = state.meta;
-            document.getElementById('metaMlDisplay').innerText = state.meta * state.bottleSize;
-            document.getElementById('bottleSizeLabel').innerText = state.bottleSize + ' ml';
+        function setNextReminder() {
+            const now = new Date();
+            // Programamos la siguiente para dentro de 2 horas (o lo que prefieras)
+            state.nextReminder = new Date(now.getTime() + 2 * 60 * 60 * 1000); 
             
-            const percent = (state.consumed / state.meta) * 100;
-            document.getElementById('progressBar').style.width = Math.min(percent, 100) + '%';
-            document.getElementById('progressPercent').innerText = Math.round(percent) + '%';
-
-            renderBottles();
-            saveData();
+            // Actualizamos la tarjeta de "PRÓXIMA" con formato HH:MM
+            const hours = state.nextReminder.getHours().toString().padStart(2, '0');
+            const minutes = state.nextReminder.getMinutes().toString().padStart(2, '0');
+            document.getElementById('nextHour').innerText = `${hours}:${minutes}`;
         }
 
-        function renderBottles() {
-            const container = document.getElementById('bottleContainer');
-            container.innerHTML = '';
-            
-            for (let i = 1; i <= state.meta; i++) {
-                const isDone = i <= state.consumed;
-                container.innerHTML += `
-                    <div onclick="toggleBottle(${i})" class="bottle-card flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl shadow-sm cursor-pointer ${isDone ? 'opacity-100' : 'opacity-60'}">
-                        <div class="flex items-center gap-4">
-                            <div class="w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all ${isDone ? 'bg-sky-400 border-sky-400 text-white' : 'border-slate-200'}">
-                                ${isDone ? '✓' : ''}
-                            </div>
-                            <div>
-                                <p class="font-bold text-slate-700">Botella #${i}</p>
-                                <p class="text-[10px] ${isDone ? 'text-green-500' : 'text-slate-400'} font-bold">${isDone ? 'Completado' : 'Pendiente'}</p>
-                            </div>
-                        </div>
-                    </div>
-                `;
+        function updateCountdown() {
+            if (!state.nextReminder) return;
+
+            const now = new Date();
+            const diff = state.nextReminder - now;
+
+            if (diff <= 0) {
+                document.getElementById('countdown').innerText = "¡Es hora de beber! 💧";
+                // Aquí podrías disparar la notificación real si tienes permiso
+                return;
             }
+
+            // Calculamos horas, minutos y segundos restantes
+            const h = Math.floor(diff / (1000 * 60 * 60));
+            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((diff % (1000 * 60)) / 1000);
+
+            document.getElementById('countdown').innerText = 
+                `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         }
 
+        // Modificamos la función de marcar botella para que reinicie el temporizador
         function toggleBottle(index) {
             state.consumed = index;
+            setNextReminder(); // Al beber una, la siguiente se pospone 2 horas
             updateUI();
         }
-
-        function resetDay() {
-            if(confirm("¿Quieres reiniciar tu progreso de hoy?")) {
-                state.consumed = 0;
-                updateUI();
-            }
-        }
-
-        function saveData() {
-            localStorage.setItem('hydrotrack_data', JSON.stringify(state));
-        }
-
-        function testNotification() {
-            if (!("Notification" in window)) return alert("Este navegador no soporta notificaciones.");
-            
-            Notification.requestPermission().then(permission => {
-                if (permission === "granted") {
-                    new Notification("HydroTrack 💧", { 
-                        body: "¡Funciona! Sigue hidratándote.",
-                        icon: "https://cdn-icons-png.flaticon.com/512/3105/3105807.png" 
-                    });
-                }
-            });
-        }
-
         // Reloj de ejemplo
         setInterval(() => {
             const now = new Date();
